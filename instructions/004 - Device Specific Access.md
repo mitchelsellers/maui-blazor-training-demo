@@ -1,4 +1,8 @@
-﻿@page "/"
+Update `Home.razor` to enable demos
+
+## Updated Home.razor
+```` razor
+@page "/"
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 
@@ -117,3 +121,4 @@
         };
     }
 }
+````
