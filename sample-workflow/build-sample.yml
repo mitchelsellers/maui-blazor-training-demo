@@ -1,0 +1,139 @@
+name: CI/CD
+
+on:
+  push:
+    tags: 
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+        buildTarget: [android, ios]
+        exclude: # Skip the items that don't match our expectations
+          - os: windows-latest
+            buildTarget: ios
+          - os: macos-latest
+            buildTarget: android
+
+    runs-on: ${{ matrix.os }}
+    name: Build and Publish
+    env:
+      DOTNET_NOLOGO: true                     # Disable the .NET logo
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true # Disable the .NET first time experience
+      DOTNET_CLI_TELEMETRY_OPTOUT: true       # Disable sending .NET CLI telemetry
+      solution-path: './src/DemoApplication.sln'
+      mauiproject-path: './src/DemoApplication.UI/DemoApplication.UI.csproj'
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_ICG_CERTIFICATE }}
+      APPLE_CERTIFICATE_NAME: ${{ secrets.APPLE_ICG_CERTIFICATE_NAME }}
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APPLE_ICG_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_ICG_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APPLE_ICG_CONNECT_PRIVATE_KEY }}
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        
+    - name: Ensure .NET Installed
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 8.0.x
+        
+    - name: Install GitVersion
+      run: dotnet tool install --global GitVersion.Tool
+
+    - name: Install Workloads
+      run: |
+        dotnet workload install maui
+        dotnet workload restore "${{ env.mauiproject-path }}"
+    
+    - name: Adjust Settings FIle
+      uses: microsoft/variable-substitution@v1 
+      with:
+        files: '**/AppSettings.json'
+      env:
+        BaseAddress: ${{ secrets.PROD_SERVICE_URL }}
+
+    - name: Install Apple Profiles
+      uses: maui-actions/apple-provisioning@2d313f3be61a3c001d0550951fd049811e351d70
+      with:
+        bundle-identifiers: 'MyIdentifier'
+        profile-types: 'IOS_APP_ADHOC'
+      if: matrix.buildTarget == 'ios'
+
+    - name: Install provisioning profile
+      uses: dietdoctor/install-ios-provisioning-profile@latest
+      with:
+        profile-base64: ${{ secrets.PROD_PROVISION_PROFILE }}
+      if: matrix.buildTarget == 'ios'
+
+    - name: Install Certificate
+      uses: apple-actions/import-codesign-certs@v1
+      with: 
+        p12-file-base64: ${{ secrets.APPLE_ICG_CERTIFICATE }}
+        p12-password: ${{ secrets.APPLE_ICG_CERTIFICATE_PASSWORD }}
+      if: matrix.buildTarget == 'ios'
+
+    - name: Determine Version
+      id: gitversion
+      uses: gittools/actions/gitversion/execute@v0.9.15
+      with:
+        useConfigFile: true 
+    
+    - name: Restore Packages
+      run: dotnet restore "${{ env.solution-path }}"
+
+    - name: Build/Package Android
+      run: >-
+        dotnet publish "${{ env.mauiproject-path }}" 
+        -c Release -f net8.0-android 
+        --no-restore  
+        -p:version=${{ steps.gitversion.outputs.majorMinorPatch }}
+        -p:ApplicationVersion='${{ steps.gitversion.outputs.commitsSinceVersionSource }}'
+        -p:ApplicationDisplayVersion='${{ steps.gitversion.outputs.majorMinorPatch }}'
+        -p:AndroidKeyStore=true 
+        -p:AndroidSigningKeyAlias='MyKey' 
+        -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} 
+        -p:AndroidSigningKeyStore='MyKeystore'
+        -p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      if: matrix.buildTarget == 'android'
+
+    - name: Build/Package iOS
+      run: |
+        dotnet publish '${{ env.mauiproject-path }}' \
+        -c Release -f net7.0-ios \
+        --no-restore \
+        -p:version='${{ steps.gitversion.outputs.majorMinorPatch }}' \
+        -p:ApplicationVersion='${{ steps.gitversion.outputs.commitsSinceVersionSource }}' \
+        -p:ApplicationDisplayVersion='${{ steps.gitversion.outputs.majorMinorPatch }}' \
+        -p:ArchiveOnBuild=true \
+        -p:CodesignProvision='MyprofileName' \
+        -p:RuntimeIdentifier=ios-arm64 \
+        -p:CodesignKey="\"$APPLE_CERTIFICATE_NAME\"" \
+        -bl:ios.binlog
+      if: matrix.buildTarget == 'ios'
+
+    - name: Upload Android Artifact
+      uses: actions/upload-artifact@v3
+      if: matrix.buildTarget == 'android'
+      with:
+        name: android-client
+        path: ./**/*.apk
+        retention-days: 1 # only need long enough to test/validate
+
+    - name: Upload Artifact (iOS .ipa)
+      uses: actions/upload-artifact@v3
+      if: matrix.buildTarget == 'ios'
+      with:
+        name: App.ipa
+        path: ./**/*.ipa
+
+    - name: Upload Artifat (iOS .binlog)
+      uses: actions/upload-artifact@v3
+      if: matrix.buildTarget == 'ios'
+      with:
+        name: Binlogs
+        path: ./**/*.binlog

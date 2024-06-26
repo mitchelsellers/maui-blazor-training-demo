@@ -2,7 +2,7 @@ Components & Interop Demos
 
 * Add a new Razor Component `Alert.razor`
 * Add the following to Login.razor to demonstrate usage `<Alert title="This is a more clean way to do things!"></Alert>`
-* Add a JS Method to the /wwwroot/index.html page
+* Add two JS methods to the /wwwroot/index.html page
 * Replace the contents of the `Home.razor` to see the usage
 
 
@@ -23,6 +23,10 @@ Components & Interop Demos
 <script>
     function demoMethod() {
         alert('This is from JS!');
+    }
+
+    function showPrompt(message) {
+        return prompt(message, 'Type anything here');
     }
 </script>
 ````
@@ -47,7 +51,15 @@ Components & Interop Demos
     <button class="btn btn-primary" @onclick="TestJsInteropParameters">Test JS Interop w/ Parameters</button>
 </p>
 
+<p>
+    <button class="btn btn-primary" @onclick="TestJsInteropReceive">Test JS Interop w/ Return Value</button>
+</p>
+
+<p>The following was received from JS '@FromJavascript'</p>
+
 @code {
+
+    public string FromJavascript { get; set; }
 
     private async Task TestJsInterop()
     {
@@ -57,6 +69,11 @@ Components & Interop Demos
     private async Task TestJsInteropParameters()
     {
         await JSRuntime.InvokeVoidAsync("alert", "I can even pass stuff!");
+    }
+
+    private async Task TestJsInteropReceive()
+    {
+        FromJavascript = await JSRuntime.InvokeAsync<string>("showPrompt", "Please provide a value to display");
     }
 }
 ````

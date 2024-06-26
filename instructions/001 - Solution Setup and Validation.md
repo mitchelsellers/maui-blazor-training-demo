@@ -8,6 +8,7 @@ The initial goal is to create the new project using the .NET Core Template and e
   * Solution: Create New
   * Solution name: src
 * Select Framework: .NET 8.0 (Long Term Support)
+* After creation right click on the solution and rename "Demo Application"
 
 ## Validate Functionality & VS Setup
 
