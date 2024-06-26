@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Extensions.Logging;
 
 namespace DemoApplication.UI
 {
@@ -14,10 +15,18 @@ namespace DemoApplication.UI
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 });
 
+
             builder.Services.AddMauiBlazorWebView();
 
+
+            builder.Services.AddAuthorizationCore();
+            //Add Authentication
+            builder.Services.AddScoped<CustomAuthenticationStateProvider>();
+            //When asking for the default Microsoft one, give ours!
+            builder.Services.AddScoped<AuthenticationStateProvider>(s => s.GetRequiredService<CustomAuthenticationStateProvider>());
+
 #if DEBUG
-    		builder.Services.AddBlazorWebViewDeveloperTools();
+            builder.Services.AddBlazorWebViewDeveloperTools();
     		builder.Logging.AddDebug();
 #endif
 
