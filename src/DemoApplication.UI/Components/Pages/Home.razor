@@ -2,6 +2,42 @@
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 
+@inject IJSRuntime JSRuntime
+
 <h1>Hello, world!</h1>
 
-Welcome to your new app.
+<p>Welcome to your new app.</p>
+
+<p>
+    <button class="btn btn-primary" @onclick="TestJsInterop">Test JS Interop</button>
+</p>
+
+<p>
+    <button class="btn btn-primary" @onclick="TestJsInteropParameters">Test JS Interop w/ Parameters</button>
+</p>
+
+<p>
+    <button class="btn btn-primary" @onclick="TestJsInteropReceive">Test JS Interop w/ Return Value</button>
+</p>
+
+<p>The following was received from JS '@FromJavascript'</p>
+
+@code {
+
+    public string FromJavascript { get; set; }
+
+    private async Task TestJsInterop()
+    {
+        await JSRuntime.InvokeVoidAsync("demoMethod");
+    }
+
+    private async Task TestJsInteropParameters()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "I can even pass stuff!");
+    }
+
+    private async Task TestJsInteropReceive()
+    {
+        FromJavascript = await JSRuntime.InvokeAsync<string>("showPrompt", "Please provide a value to display");
+    }
+}

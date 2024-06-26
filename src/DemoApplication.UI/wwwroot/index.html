@@ -23,7 +23,17 @@
         <a class="dismiss">🗙</a>
     </div>
 
-    <script src="_framework/blazor.webview.js" autostart="false"></script>
+<script src="_framework/blazor.webview.js" autostart="false"></script>
+
+<script>
+    function demoMethod() {
+        alert('This is from JS!');
+    }
+
+    function showPrompt(message) {
+        return prompt(message, 'Type anything here');
+    }
+</script>
 
 </body>
 
